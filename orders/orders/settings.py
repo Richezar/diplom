@@ -146,6 +146,15 @@ REST_FRAMEWORK = {
     ]
 }
 
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.yandex.ru'
+EMAIL_PORT = 465  # или 587, если используешь TLS
+EMAIL_USE_TLS = True  # если используешь порт 587
+EMAIL_USE_SSL = True  # если используешь порт 465
+EMAIL_HOST_USER = 'your_email@yandex.ru'
+EMAIL_HOST_PASSWORD = 'your_app_password'
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),

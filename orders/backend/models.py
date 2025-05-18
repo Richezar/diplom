@@ -307,7 +307,6 @@ class Order(models.Model):
 
 class OrderItem(models.Model):
     """Модель позиции заказа"""
-
     order = models.ForeignKey(
         Order,
         related_name='ordered_items',
@@ -320,6 +319,12 @@ class OrderItem(models.Model):
         on_delete=models.CASCADE,
         verbose_name=_('product info')
     )
+    shop = models.ForeignKey(
+        Shop,
+        related_name='order_items',
+        on_delete=models.CASCADE,
+        verbose_name=_('shop')
+    )
     quantity = models.PositiveIntegerField(
         _('quantity'),
         validators=[MinValueValidator(1)]
@@ -328,16 +333,11 @@ class OrderItem(models.Model):
     class Meta:
         verbose_name = _('Позиция заказа')
         verbose_name_plural = _('Позиции заказа')
-        unique_together = ('order', 'product_info')
+        unique_together = ('order', 'product_info', 'shop')
         ordering = ['order', 'product_info']
 
     def __str__(self):
-        return f"{self.product_info} x {self.quantity}"
-
-    @property
-    def item_sum(self):
-        """Сумма по позиции"""
-        return self.quantity * self.product_info.price
+        return f"{self.product_info} x {self.quantity} в магазине {self.shop.name}"
 
 
 class Contact(models.Model):

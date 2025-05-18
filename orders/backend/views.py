@@ -4,28 +4,16 @@ from rest_framework import generics, permissions, status
 from rest_framework.generics import ListAPIView, RetrieveUpdateAPIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .models import Shop, Category, ProductInfo, Order, OrderItem, Contact
+from .models import Shop, Category, ProductInfo, Order, OrderItem, Contact, User
 from .serializers import ShopSerializer, CategorySerializer, UserRegisterSerializer, UserProfileSerializer, \
     ProductInfoSerializer, MyTokenObtainPairSerializer, OrderSerializer, OrderItemSerializer, ContactSerializer
 from django.utils import timezone
 from django.db.models import Sum, F, Q
+from django.core.mail import send_mail
 
 # Create your views here.
 class LoginAccountView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
-
-class RegisterAccountView(generics.CreateAPIView):
-    serializer_class = UserRegisterSerializer
-    permission_classes = [permissions.AllowAny]
-
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        return Response({
-            "user": serializer.data,
-            "message": "User created successfully",
-        }, status=status.HTTP_201_CREATED)
 
 class UserProfileView(RetrieveUpdateAPIView):
     serializer_class = UserProfileSerializer
@@ -67,31 +55,14 @@ class BasketView(generics.GenericAPIView):
     serializer_class = OrderSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self):
-        return Order.objects.filter(
-            user=self.request.user,
-            status='basket'
-        ).prefetch_related(
-            'ordered_items__product_info__shop',
-            'ordered_items__product_info__product__category',
-            'ordered_items__product_info__product_parameters__parameter'
-        ).annotate(
-            total_sum=Sum(F('ordered_items__quantity') * F('ordered_items__product_info__price'))
-        ).distinct()
-
     def get_basket(self):
         """Получает или создает корзину с аннотацией общей суммы"""
         basket, created = Order.objects.get_or_create(
             user=self.request.user,
-            status='basket',
+            status=Order.Status.BASKET,
             defaults={'dt': timezone.now()}
         )
         return basket
-
-    def get(self, request, *args, **kwargs):
-        basket = self.get_basket()
-        serializer = self.get_serializer(basket)
-        return Response(serializer.data)
 
     def post(self, request, *args, **kwargs):
         basket = self.get_basket()
@@ -109,9 +80,12 @@ class BasketView(generics.GenericAPIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        shop = product_info.shop  # Получаем магазин для данного товара
+
         order_item, created = OrderItem.objects.get_or_create(
             order=basket,
             product_info=product_info,
+            shop=shop,  # Указываем магазин
             defaults={'quantity': serializer.validated_data['quantity']}
         )
 
@@ -125,7 +99,6 @@ class BasketView(generics.GenericAPIView):
             order_item.quantity = new_quantity
             order_item.save()
 
-        # Обновляем аннотации
         basket.refresh_from_db()
         serializer = self.get_serializer(basket)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -230,7 +203,6 @@ class ConfirmOrderView(APIView):
         basket_id = request.data.get('basket_id')
         contact_id = request.data.get('contact_id')
 
-        # Проверяем, что оба параметра переданы
         if not basket_id or not contact_id:
             return Response(
                 {"status": False, "error": "basket_id и contact_id обязательны."},
@@ -259,12 +231,20 @@ class ConfirmOrderView(APIView):
         basket.status = Order.Status.CONFIRMED
         basket.save()
 
+        # Отправляем email пользователю о подтверждении заказа
+        send_mail(
+            "Подтверждение заказа",
+            f"Ваш заказ {basket.id} успешно подтвержден.",
+            'noreply@example.com',
+            [request.user.email],
+        )
+
         return Response(
             {
                 "status": True,
                 "message": "Заказ успешно подтвержден.",
                 "order_id": basket.id,
-                "total_sum": basket.total_sum  # Общая сумма заказа
+                "total_sum": basket.total_sum
             },
             status=200
         )
@@ -276,3 +256,29 @@ class ListOrdersView(APIView):
         orders = Order.objects.filter(user=request.user).order_by('-dt')  # Заказы текущего пользователя
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data)
+
+class UnifiedRegisterView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = UserRegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+
+            send_mail(
+                subject="Подтверждение регистрации",
+                message="Вы успешно зарегистрировались!",
+                from_email="noreply@example.com",
+                recipient_list=[user.email],
+            )
+
+            return Response({
+                "status": True,
+                "message": "Пользователь создан. Подтверждение отправлено на email.",
+                "user": serializer.data
+            }, status=status.HTTP_201_CREATED)
+
+        return Response({
+            "status": False,
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)

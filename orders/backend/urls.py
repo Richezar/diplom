@@ -1,23 +1,22 @@
 from django.urls import path
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
-)
-from .views import ShopView, CategoryView, RegisterAccountView, UserProfileView, ProductInfoView, \
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from .views import (
+    ShopView, CategoryView, UnifiedRegisterView, UserProfileView, ProductInfoView,
     LoginAccountView, BasketView, ContactView, ConfirmOrderView, ListOrdersView, BasketItemView
+)
 
 urlpatterns = [
-    path('token/', TokenObtainPairView.as_view(),),
-    path('token/refresh/', TokenRefreshView.as_view(),),
-    path('user/register/', RegisterAccountView.as_view()), # Регистрация нового пользователя
-    path('user/login/', LoginAccountView.as_view()),  # Вход в систему
-    path('user/profile/', UserProfileView.as_view()),  # Информация о пользователе
-    path('shops/', ShopView.as_view()),  # Список магазинов
-    path('categories/', CategoryView.as_view()),  # Список категорий
-    path('products/', ProductInfoView.as_view()),  # Список товаров
-    path('basket/', BasketView.as_view()), #Просмотр корзины
-    path('basket/<int:id>/', BasketItemView.as_view()),
-    path('contacts/', ContactView.as_view()),#Контакты
-    path('orders/confirm/', ConfirmOrderView.as_view()),  # Подтверждение заказа
-    path('orders/', ListOrdersView.as_view()), # Список всех заказов текущего пользователя
+    path('token/', TokenObtainPairView.as_view()),
+    path('token/refresh/', TokenRefreshView.as_view()),
+    path('user/register/', UnifiedRegisterView.as_view()),  # Объединённая регистрация с email
+    path('user/login/', LoginAccountView.as_view()),        # Вход
+    path('user/profile/', UserProfileView.as_view()),       # Профиль
+    path('shops/', ShopView.as_view()),                     # Список магазинов
+    path('categories/', CategoryView.as_view()),            # Категории
+    path('products/', ProductInfoView.as_view()),           # Продукты
+    path('basket/', BasketView.as_view()),                  # Корзина
+    path('basket/<int:id>/', BasketItemView.as_view()),     # Отдельная позиция корзины
+    path('contacts/', ContactView.as_view()),               # Контакты
+    path('orders/confirm/', ConfirmOrderView.as_view()),    # Подтверждение заказа
+    path('orders/', ListOrdersView.as_view()),              # Список заказов
 ]
